@@ -1,10 +1,12 @@
 package rocketseat.com.passin.domain.attendee;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import rocketseat.com.passin.domain.event.Event;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,5 +28,4 @@ public class Attendee {
     private Event event;
     @Column(name = "created_at")
     private LocalDateTime createdAt;
-
 }
