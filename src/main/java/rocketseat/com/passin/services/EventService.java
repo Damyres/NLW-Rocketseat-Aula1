@@ -1,17 +1,20 @@
 package rocketseat.com.passin.services;
 
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import rocketseat.com.passin.domain.attendee.Attendee;
 import rocketseat.com.passin.domain.event.Event;
+import rocketseat.com.passin.domain.event.exceptions.EventFullException;
 import rocketseat.com.passin.domain.event.exceptions.EventNoFoundException;
+import rocketseat.com.passin.dto.attendee.AttendeeRequestDTO;
+import rocketseat.com.passin.dto.attendee.AttendeeIdDTO;
 import rocketseat.com.passin.dto.event.EventIdDTO;
 import rocketseat.com.passin.dto.event.EventRequestDTO;
 import rocketseat.com.passin.dto.event.EventResponseDTO;
 import rocketseat.com.passin.repositories.EventRepository;
 
 import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -21,8 +24,7 @@ public class EventService {
     private final AttendeeService attendeeService;
 
     public EventResponseDTO getEventDetail(String eventId) {
-        var event = this.eventRepository.findById(eventId).orElseThrow(
-                () -> new EventNoFoundException("Event not found with ID " + eventId));
+        var event = this.getEventById(eventId);
         List<Attendee> attendeesList = this.attendeeService.getAllAttendeesFromEvent(eventId);
         return new EventResponseDTO(event, attendeesList.size());
     }
@@ -34,8 +36,28 @@ public class EventService {
         newEvent.setMaximumAttendees(eventDTO.maximumAttendees());
         newEvent.setSlug(this.createSlug(eventDTO.title()));
         this.eventRepository.save(newEvent);
-        return  new EventIdDTO(newEvent.getId());
+        return new EventIdDTO(newEvent.getId());
     }
+
+    public AttendeeIdDTO registerAttendeeOnEvent(String eventId, AttendeeRequestDTO attendeeRequestDTO) {
+        this.attendeeService.verifyAttendeeSubscription(attendeeRequestDTO.email(), eventId);
+        var event = this.getEventById(eventId);
+        List<Attendee> attendeesList = this.attendeeService.getAllAttendeesFromEvent(eventId);
+        if (event.getMaximumAttendees() <= attendeesList.size()) throw new EventFullException("Event is full");
+        Attendee newAttendee = new Attendee();
+        newAttendee.setNome(attendeeRequestDTO.nome());
+        newAttendee.setEmail(attendeeRequestDTO.email());
+        newAttendee.setEvent(event);
+        newAttendee.setCreatedAt(LocalDateTime.now());
+        this.attendeeService.registerAttendee(newAttendee);
+        return new AttendeeIdDTO(newAttendee.getId());
+    }
+
+    private Event getEventById(String eventId) {
+        return this.eventRepository.findById(eventId).orElseThrow(
+                () -> new EventNoFoundException("Event not found with ID " + eventId));
+    }
+
     private String createSlug(String text) {
         var normalized = Normalizer.normalize(text, Normalizer.Form.NFD);
         return normalized.replaceAll("[\\p{InCOMBINING_DIACRITICAL_MARKS}]", "")
@@ -43,4 +65,5 @@ public class EventService {
                 .replaceAll("\\s+", "-")
                 .toLowerCase();
     }
+
 }
